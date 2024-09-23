@@ -77,31 +77,50 @@ class MainPage(OpenQ1Page):
 
     async def onDisplayEvent(self, type: EventType, data):
         if type == EventType.TOUCH:
-            if data.component_id == 0:
+            if data.component_id == 0:  # Light button
                 self.state.printer.togglePin("caselight")
-            elif data.component_id == 1:
+            elif data.component_id == 1:  # Sound button
                 self.state.printer.togglePin("sound")
                 self.state.printer.togglePin("beep")
-            elif data.component_id == 2:
+            elif data.component_id == 2:  # Stop button
                 self.state.printer.emergencyStop()
-            else:
+            elif data.component_id == 3:  # Hotend temperature
+                await self.setHeaterTemperature("extruder", "t0")
+            elif data.component_id == 4:  # Bed temperature
+                await self.setHeaterTemperature("heater_bed", "t1")
+            elif data.component_id == 5:  # Chamber temperature
+                await self.setHeaterTemperature("heater_generic chamber", "t2")
+            elif data.component_id in [30, 31, 32, 33]:  # Navigation bar buttons
                 self.handleNavBarButtons(data.component_id)
 
+    async def setHeaterTemperature(self, heater: str, temp_field: str):
+        temperature = await self.state.display.get(f"{temp_field}.val")
+        if temperature is not None:
+            await self.state.printer.setHeaterTemperature(heater, float(temperature))
+
     async def onPrinterStatusUpdate(self, data: dict):
+        # Hotend
         await self.state.display.set("n0.val", int(data["extruder"]["temperature"]))
         await self.setHighlight("b3", self.isHeating(data["extruder"]))
+        await self.state.display.set("t0.val", int(data["extruder"]["target"]))
 
+        # Bed
         await self.state.display.set("n1.val", int(data["heater_bed"]["temperature"]))
         await self.setHighlight("b4", self.isHeating(data["heater_bed"]))
+        await self.state.display.set("t1.val", int(data["heater_bed"]["target"]))
 
+        # Chamber
         await self.state.display.set(
             "n2.val", int(data["heater_generic chamber"]["temperature"])
         )
         await self.setHighlight("b5", self.isHeating(data["heater_generic chamber"]))
+        await self.state.display.set("t2.val", int(data["heater_generic chamber"]["target"]))
 
+        # Light and sound buttons
         await self.setHighlight("b0", data["output_pin caselight"]["value"] > 0)
         await self.setHighlight("b1", data["output_pin sound"]["value"] > 0)
 
+        # Thumbnail
         filename = data["print_stats"]["filename"]
         await self.state.display.set("t0.txt", filename)
         if filename == "":
@@ -269,3 +288,7 @@ class ResetPage(BasePage):
     @classproperty
     def id(cls) -> int:
         return 48
+
+class heater_generic(BasePage):
+    @classproperty
+    def id()
